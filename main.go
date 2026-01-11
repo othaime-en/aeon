@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -26,19 +25,31 @@ type model struct {
 // TickMsg is sent every second to update clocks
 type tickMsg time.Time
 
+// Styles
+var (
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("170")).
+			MarginBottom(1)
+
+	clockStyle = lipgloss.NewStyle().
+			Padding(0, 1).
+			MarginBottom(1)
+)
+
 func initialModel() model {
 	// Initialize with local time and UTC
 	local := Zone{
 		Name:     "Local",
 		Location: time.Local,
 	}
-	
+
 	utc, _ := time.LoadLocation("UTC")
 	utcZone := Zone{
 		Name:     "UTC",
 		Location: utc,
 	}
-	
+
 	return model{
 		zones: []Zone{local, utcZone},
 	}
@@ -68,10 +79,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	var b strings.Builder
-	
+
 	// Title
-	b.WriteString("⏰ aeon - Time Zone Manager\n\n")
-	
+	b.WriteString(titleStyle.Render("⏰ aeon - Time Zone Manager"))
+	b.WriteString("\n\n")
+
 	// Clock view
 	now := time.Now()
 	for _, zone := range m.zones {
@@ -79,11 +91,12 @@ func (m model) View() string {
 		timeStr := t.Format("15:04:05")
 		dateStr := t.Format("Mon, Jan 02")
 		offset := t.Format("-07:00")
-		line := fmt.Sprintf("%-15s  %s  %s  (UTC%s)", 
+		line := fmt.Sprintf("%-15s  %s  %s  (UTC%s)",
 			zone.Name, timeStr, dateStr, offset)
-		b.WriteString(line + "\n")
+		b.WriteString(clockStyle.Render(line))
+		b.WriteString("\n")
 	}
-	
+
 	return b.String()
 }
 
