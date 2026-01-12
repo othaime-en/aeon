@@ -144,8 +144,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "enter":
 			if m.currentView == convertView && m.convertActive {
-				// TODO: process
-				m.convertResult = "TODO: Conversion result"
+				m.convertResult = m.processConversion(m.convertInput.Value())
 				m.convertActive = false
 				m.convertInput.Blur()
 				m.convertInput.SetValue("")
@@ -250,6 +249,102 @@ func (m model) getHelpText() string {
 		return "←/→: Switch views  •  q: Quit"
 	}
 	return ""
+}
+
+func (m model) processConversion(input string) string {
+	// Simple parser for "3pm NYC to Berlin" format
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return errorStyle.Render("Error: Empty input")
+	}
+
+	// Basic parsing (MVP - simple approach)
+	parts := strings.Split(input, " to ")
+	if len(parts) != 2 {
+		return errorStyle.Render("Error: Use format '3pm NYC to Berlin'")
+	}
+
+	sourcePart := strings.TrimSpace(parts[0])
+	targetZone := strings.TrimSpace(parts[1])
+
+	// Parse source time and zone
+	sourceWords := strings.Fields(sourcePart)
+	if len(sourceWords) < 2 {
+		return errorStyle.Render("Error: Specify time and source zone")
+	}
+
+	timeStr := sourceWords[0]
+	sourceZone := strings.Join(sourceWords[1:], " ")
+
+	// Load locations
+	sourceLoc, err := loadLocation(sourceZone)
+	if err != nil {
+		return errorStyle.Render(fmt.Sprintf("Error: Unknown source zone '%s'", sourceZone))
+	}
+
+	targetLoc, err := loadLocation(targetZone)
+	if err != nil {
+		return errorStyle.Render(fmt.Sprintf("Error: Unknown target zone '%s'", targetZone))
+	}
+
+	// Parse time (simple 12/24 hour format)
+	sourceTime, err := parseTime(timeStr)
+	if err != nil {
+		return errorStyle.Render(fmt.Sprintf("Error: Invalid time format '%s'", timeStr))
+	}
+
+	// Convert
+	now := time.Now()
+	source := time.Date(now.Year(), now.Month(), now.Day(),
+		sourceTime.Hour(), sourceTime.Minute(), 0, 0, sourceLoc)
+	target := source.In(targetLoc)
+
+	return fmt.Sprintf("%s in %s  →  %s in %s",
+		source.Format("3:04 PM Mon Jan 02"),
+		sourceZone,
+		target.Format("3:04 PM Mon Jan 02"),
+		targetZone,
+	)
+}
+
+func loadLocation(name string) (*time.Location, error) {
+	// Try common variations
+	variations := []string{
+		name,
+		strings.ReplaceAll(name, " ", "_"),
+		"America/" + strings.ReplaceAll(name, " ", "_"),
+		"Europe/" + strings.ReplaceAll(name, " ", "_"),
+		"Asia/" + strings.ReplaceAll(name, " ", "_"),
+	}
+
+	for _, v := range variations {
+		if loc, err := time.LoadLocation(v); err == nil {
+			return loc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown location: %s", name)
+}
+
+func parseTime(s string) (time.Time, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+
+	// Try common formats
+	formats := []string{
+		"3pm",
+		"3:04pm",
+		"15:04",
+		"3PM",
+		"3:04PM",
+	}
+
+	for _, format := range formats {
+		if t, err := time.Parse(format, s); err == nil {
+			return t, nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("invalid time format")
 }
 
 func main() {
