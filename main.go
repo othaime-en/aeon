@@ -164,8 +164,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.convertInput.Blur()
 				m.convertInput.SetValue("")
 			} else if m.currentView == meetingView && m.meetingActive {
-				// TODO: process
-				m.meetingResult = "TODO: Meeting result"
+				m.meetingResult = m.processMeeting(m.meetingInput.Value())
 				m.meetingActive = false
 				m.meetingInput.Blur()
 				m.meetingInput.SetValue("")
@@ -350,6 +349,39 @@ func (m model) processConversion(input string) string {
 		target.Format("3:04 PM Mon Jan 02"),
 		targetZone,
 	)
+}
+
+func (m model) processMeeting(input string) string {
+	zones := strings.Split(input, ",")
+	if len(zones) < 2 {
+		return errorStyle.Render("Error: Enter at least 2 zones")
+	}
+	
+	// For MVP, show business hours for each zone
+	var b strings.Builder
+	b.WriteString("Business Hours (9 AM - 5 PM local):\n\n")
+	
+	now := time.Now()
+	for _, zoneName := range zones {
+		zoneName = strings.TrimSpace(zoneName)
+		loc, err := loadLocation(zoneName)
+		if err != nil {
+			b.WriteString(fmt.Sprintf("⚠️  %s: Unknown zone\n", zoneName))
+			continue
+		}
+		
+		t := now.In(loc)
+		start := time.Date(t.Year(), t.Month(), t.Day(), 9, 0, 0, 0, loc)
+		end := time.Date(t.Year(), t.Month(), t.Day(), 17, 0, 0, 0, loc)
+		
+		b.WriteString(fmt.Sprintf("%-15s: %s - %s\n", 
+			zoneName,
+			start.In(time.Local).Format("3:04 PM"),
+			end.In(time.Local).Format("3:04 PM"),
+		))
+	}
+	
+	return b.String()
 }
 
 func loadLocation(name string) (*time.Location, error) {
