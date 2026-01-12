@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -27,9 +28,12 @@ type Zone struct {
 
 // Model holds the application state
 type model struct {
-	zones       []Zone
-	currentView viewType
-	err         error
+	zones         []Zone
+	currentView   viewType
+	convertInput  textinput.Model
+	convertResult string
+	convertActive bool
+	err           error
 }
 
 // TickMsg is sent every second to update clocks
@@ -55,6 +59,18 @@ var (
 	clockStyle = lipgloss.NewStyle().
 			Padding(0, 1).
 			MarginBottom(1)
+
+	helpStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			MarginTop(1)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
+
+	resultStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("120")).
+			Padding(1, 0)
 )
 
 func initialModel() model {
@@ -70,14 +86,21 @@ func initialModel() model {
 		Location: utc,
 	}
 
+	// Setup convert input
+	ti := textinput.New()
+	ti.Placeholder = "e.g., 3pm NYC to Berlin"
+	ti.CharLimit = 100
+	ti.Width = 50
+
 	return model{
-		zones:       []Zone{local, utcZone},
-		currentView: clockView,
+		zones:        []Zone{local, utcZone},
+		currentView:  clockView,
+		convertInput: ti,
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tickCmd()
+	return tea.Batch(tickCmd(), textinput.Blink)
 }
 
 func tickCmd() tea.Cmd {
@@ -87,26 +110,59 @@ func tickCmd() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
+			if m.convertActive {
+				m.convertActive = false
+				m.convertInput.Blur()
+				return m, nil
+			}
 			return m, tea.Quit
 		case "tab", "right":
-			m.currentView = (m.currentView + 1) % 3
+			if !m.convertActive {
+				m.currentView = (m.currentView + 1) % 3
+			}
 		case "shift+tab", "left":
-			m.currentView = (m.currentView + 2) % 3
+			if !m.convertActive {
+				m.currentView = (m.currentView + 2) % 3
+			}
 		case "1":
-			m.currentView = clockView
-		case "2":
-			m.currentView = convertView
+			if !m.convertActive {
+				m.currentView = clockView
+			}
+		case "2", "c":
+			if !m.convertActive {
+				m.currentView = convertView
+			}
 		case "3":
-			m.currentView = meetingView
+			if !m.convertActive {
+				m.currentView = meetingView
+			}
+		case "enter":
+			if m.currentView == convertView && m.convertActive {
+				// TODO: process
+				m.convertResult = "TODO: Conversion result"
+				m.convertActive = false
+				m.convertInput.Blur()
+				m.convertInput.SetValue("")
+			} else if m.currentView == convertView {
+				m.convertActive = true
+				m.convertInput.Focus()
+			}
 		}
 	case tickMsg:
 		return m, tickCmd()
 	}
-	return m, nil
+
+	if m.convertActive {
+		m.convertInput, cmd = m.convertInput.Update(msg)
+	}
+
+	return m, cmd
 }
 
 func (m model) View() string {
@@ -133,10 +189,14 @@ func (m model) View() string {
 	case clockView:
 		b.WriteString(m.renderClockView())
 	case convertView:
-		b.WriteString("Convert view (TODO)\n")
+		b.WriteString(m.renderConvertView())
 	case meetingView:
 		b.WriteString("Meeting view (TODO)\n")
 	}
+
+	// Help text
+	b.WriteString("\n")
+	b.WriteString(helpStyle.Render(m.getHelpText()))
 
 	return b.String()
 }
@@ -160,6 +220,36 @@ func (m model) renderClockView() string {
 	}
 
 	return b.String()
+}
+
+func (m model) renderConvertView() string {
+	var b strings.Builder
+
+	if m.convertActive {
+		b.WriteString("Enter conversion query:\n\n")
+		b.WriteString(m.convertInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Press Enter to convert, Esc to cancel"))
+	} else {
+		b.WriteString("Press Enter to start a conversion\n\n")
+		if m.convertResult != "" {
+			b.WriteString(resultStyle.Render(m.convertResult))
+		}
+	}
+
+	return b.String()
+}
+
+func (m model) getHelpText() string {
+	switch m.currentView {
+	case clockView:
+		return "←/→ or Tab: Switch views  •  1/2/3: Jump to view  •  q: Quit"
+	case convertView:
+		return "c: Convert  •  ←/→: Switch views  •  q: Quit"
+	case meetingView:
+		return "←/→: Switch views  •  q: Quit"
+	}
+	return ""
 }
 
 func main() {
