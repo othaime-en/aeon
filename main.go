@@ -28,15 +28,22 @@ type Zone struct {
 
 // Model holds the application state
 type model struct {
-	zones         []Zone
-	currentView   viewType
-	convertInput  textinput.Model
+	zones       []Zone
+	currentView viewType
+	width       int
+	height      int
+	
+	// Convert view state
+	convertInput textinput.Model
 	convertResult string
 	convertActive bool
-	meetingInput  textinput.Model
+	
+	// Meeting view state
+	meetingInput textinput.Model
 	meetingResult string
 	meetingActive bool
-	err           error
+	
+	err error
 }
 
 // TickMsg is sent every second to update clocks
@@ -124,6 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Global shortcuts
 		switch msg.String() {
 		case "q", "esc":
 			if m.convertActive {
@@ -137,26 +145,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 			return m, tea.Quit
+			
 		case "tab", "right":
 			if !m.convertActive && !m.meetingActive {
 				m.currentView = (m.currentView + 1) % 3
 			}
+			
 		case "shift+tab", "left":
 			if !m.convertActive && !m.meetingActive {
 				m.currentView = (m.currentView + 2) % 3
 			}
+			
 		case "1":
 			if !m.convertActive && !m.meetingActive {
 				m.currentView = clockView
 			}
+			
 		case "2", "c":
 			if !m.convertActive && !m.meetingActive {
 				m.currentView = convertView
 			}
+			
 		case "3", "m":
 			if !m.convertActive && !m.meetingActive {
 				m.currentView = meetingView
 			}
+			
 		case "enter":
 			if m.currentView == convertView && m.convertActive {
 				m.convertResult = m.processConversion(m.convertInput.Value())
@@ -176,10 +190,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.meetingInput.Focus()
 			}
 		}
+		
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		
 	case tickMsg:
 		return m, tickCmd()
 	}
 	
+	// Update inputs
 	if m.convertActive {
 		m.convertInput, cmd = m.convertInput.Update(msg)
 	}
