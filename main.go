@@ -518,19 +518,37 @@ var cityToTimezone = map[string]string{
 }
 
 func loadLocation(name string) (*time.Location, error) {
-	// Try common variations
+	// Normalize the input
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	normalized = strings.ReplaceAll(normalized, "_", " ")
+
+	// First, check the city mapping
+	if tz, ok := cityToTimezone[normalized]; ok {
+		return time.LoadLocation(tz)
+	}
+
+	// Try variations with the original name
 	variations := []string{
 		name,
 		strings.ReplaceAll(name, " ", "_"),
 		"America/" + strings.ReplaceAll(name, " ", "_"),
 		"Europe/" + strings.ReplaceAll(name, " ", "_"),
 		"Asia/" + strings.ReplaceAll(name, " ", "_"),
+		"Africa/" + strings.ReplaceAll(name, " ", "_"),
+		"Australia/" + strings.ReplaceAll(name, " ", "_"),
+		"Pacific/" + strings.ReplaceAll(name, " ", "_"),
 	}
 
 	for _, v := range variations {
 		if loc, err := time.LoadLocation(v); err == nil {
 			return loc, nil
 		}
+	}
+
+	// Provide helpful error message with suggestions
+	suggestions := getSuggestions(normalized)
+	if len(suggestions) > 0 {
+		return nil, fmt.Errorf("unknown location '%s'. Did you mean: %s?", name, strings.Join(suggestions, ", "))
 	}
 
 	return nil, fmt.Errorf("unknown location: %s", name)
