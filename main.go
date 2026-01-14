@@ -536,6 +536,20 @@ func loadLocation(name string) (*time.Location, error) {
 	return nil, fmt.Errorf("unknown location: %s", name)
 }
 
+// getSuggestions finds similar city names for typos
+func getSuggestions(input string) []string {
+	var suggestions []string
+	for city := range cityToTimezone {
+		if strings.HasPrefix(city, input) || strings.Contains(city, input) {
+			suggestions = append(suggestions, city)
+			if len(suggestions) >= 3 {
+				break
+			}
+		}
+	}
+	return suggestions
+}
+
 func parseTime(s string) (time.Time, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 
