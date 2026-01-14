@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -74,8 +75,45 @@ func downloadAndParse() (map[string]string, error) {
 		return nil, fmt.Errorf("cities15000.txt not found in zip")
 	}
 
-	// Placeholder for parsing the text file
+	// Open and parse the text file
+	rc, err := txtFile.Open()
+	if err != nil {
+		return nil, fmt.Errorf("open txt failed: %w", err)
+	}
+	defer rc.Close()
+
 	cities := make(map[string]string)
+	scanner := bufio.NewScanner(rc)
+	lineNum := 0
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+
+		// Parse tab-separated values
+		// Format: geonameid, name, asciiname, alternatenames, lat, lon, ..., timezone, ...
+		fields := strings.Split(line, "\t")
+		if len(fields) < 18 {
+			continue
+		}
+
+		name := strings.TrimSpace(fields[1])      // City name
+		timezone := strings.TrimSpace(fields[17]) // Timezone
+
+		if name == "" || timezone == "" {
+			continue
+		}
+
+		// Normalize names to lowercase
+		nameKey := strings.ToLower(name)
+
+		// Add
+		cities[nameKey] = timezone
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scan failed: %w", err)
+	}
 
 	return cities, nil
 }
