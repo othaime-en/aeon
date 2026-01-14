@@ -1,10 +1,13 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 const (
@@ -52,7 +55,26 @@ func downloadAndParse() (map[string]string, error) {
 
 	fmt.Println("📦 Extracting and parsing...")
 
-	// Placeholder for unzip and parse
+	// Open zip archive
+	zipReader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("unzip failed: %w", err)
+	}
+
+	// Find cities15000.txt
+	var txtFile *zip.File
+	for _, f := range zipReader.File {
+		if strings.HasSuffix(f.Name, "cities15000.txt") {
+			txtFile = f
+			break
+		}
+	}
+
+	if txtFile == nil {
+		return nil, fmt.Errorf("cities15000.txt not found in zip")
+	}
+
+	// Placeholder for parsing the text file
 	cities := make(map[string]string)
 
 	return cities, nil
