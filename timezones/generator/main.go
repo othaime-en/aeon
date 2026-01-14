@@ -98,6 +98,7 @@ func downloadAndParse() (map[string]string, error) {
 		}
 
 		name := strings.TrimSpace(fields[1])      // City name
+		asciiName := strings.TrimSpace(fields[2]) // ASCII version
 		timezone := strings.TrimSpace(fields[17]) // Timezone
 
 		if name == "" || timezone == "" {
@@ -106,9 +107,22 @@ func downloadAndParse() (map[string]string, error) {
 
 		// Normalize names to lowercase
 		nameKey := strings.ToLower(name)
+		asciiKey := strings.ToLower(asciiName)
 
-		// Add
+		// Add both versions (prefer ASCII for consistency)
 		cities[nameKey] = timezone
+		if asciiKey != nameKey {
+			cities[asciiKey] = timezone
+		}
+
+		// Handle common variations
+		// Remove "City" suffix (e.g., "New York City" -> "New York")
+		if strings.HasSuffix(nameKey, " city") {
+			shortName := strings.TrimSuffix(nameKey, " city")
+			if _, exists := cities[shortName]; !exists {
+				cities[shortName] = timezone
+			}
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
