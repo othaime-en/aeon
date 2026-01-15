@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aeon/timezones"
 	"fmt"
 	"os"
 	"strings"
@@ -340,15 +341,15 @@ func (m model) processConversion(input string) string {
 	timeStr := sourceWords[0]
 	sourceZone := strings.Join(sourceWords[1:], " ")
 
-	// Load locations
-	sourceLoc, err := loadLocation(sourceZone)
+	// Load locations using the timezones package
+	sourceLoc, err := timezones.Resolve(sourceZone)
 	if err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: Unknown source zone '%s'", sourceZone))
+		return errorStyle.Render(fmt.Sprintf("Error: %v", err))
 	}
 
-	targetLoc, err := loadLocation(targetZone)
+	targetLoc, err := timezones.Resolve(targetZone)
 	if err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: Unknown target zone '%s'", targetZone))
+		return errorStyle.Render(fmt.Sprintf("Error: %v", err))
 	}
 
 	// Parse time (simple 12/24 hour format)
@@ -384,9 +385,9 @@ func (m model) processMeeting(input string) string {
 	now := time.Now()
 	for _, zoneName := range zones {
 		zoneName = strings.TrimSpace(zoneName)
-		loc, err := loadLocation(zoneName)
+		loc, err := timezones.Resolve(zoneName)
 		if err != nil {
-			b.WriteString(fmt.Sprintf("⚠️  %s: Unknown zone\n", zoneName))
+			b.WriteString(fmt.Sprintf("⚠️  %s: %v\n", zoneName, err))
 			continue
 		}
 
@@ -402,170 +403,6 @@ func (m model) processMeeting(input string) string {
 	}
 
 	return b.String()
-}
-
-// cityToTimezone maps common city names and abbreviations to IANA timezone identifiers
-var cityToTimezone = map[string]string{
-	// North America
-	"nyc":           "America/New_York",
-	"new york":      "America/New_York",
-	"newyork":       "America/New_York",
-	"la":            "America/Los_Angeles",
-	"los angeles":   "America/Los_Angeles",
-	"losangeles":    "America/Los_Angeles",
-	"sf":            "America/Los_Angeles",
-	"san francisco": "America/Los_Angeles",
-	"chicago":       "America/Chicago",
-	"denver":        "America/Denver",
-	"phoenix":       "America/Phoenix",
-	"seattle":       "America/Los_Angeles",
-	"boston":        "America/New_York",
-	"miami":         "America/New_York",
-	"toronto":       "America/Toronto",
-	"vancouver":     "America/Vancouver",
-	"montreal":      "America/Toronto",
-	"mexico city":   "America/Mexico_City",
-	"mexicocity":    "America/Mexico_City",
-
-	// South America
-	"sao paulo":    "America/Sao_Paulo",
-	"saopaulo":     "America/Sao_Paulo",
-	"buenos aires": "America/Argentina/Buenos_Aires",
-	"buenosaires":  "America/Argentina/Buenos_Aires",
-	"lima":         "America/Lima",
-	"bogota":       "America/Bogota",
-	"santiago":     "America/Santiago",
-
-	// Europe
-	"london":     "Europe/London",
-	"paris":      "Europe/Paris",
-	"berlin":     "Europe/Berlin",
-	"madrid":     "Europe/Madrid",
-	"rome":       "Europe/Rome",
-	"amsterdam":  "Europe/Amsterdam",
-	"brussels":   "Europe/Brussels",
-	"vienna":     "Europe/Vienna",
-	"zurich":     "Europe/Zurich",
-	"stockholm":  "Europe/Stockholm",
-	"oslo":       "Europe/Oslo",
-	"copenhagen": "Europe/Copenhagen",
-	"dublin":     "Europe/Dublin",
-	"lisbon":     "Europe/Lisbon",
-	"athens":     "Europe/Athens",
-	"istanbul":   "Europe/Istanbul",
-	"moscow":     "Europe/Moscow",
-	"warsaw":     "Europe/Warsaw",
-	"prague":     "Europe/Prague",
-	"budapest":   "Europe/Budapest",
-
-	// Asia
-	"tokyo":        "Asia/Tokyo",
-	"beijing":      "Asia/Shanghai",
-	"shanghai":     "Asia/Shanghai",
-	"hong kong":    "Asia/Hong_Kong",
-	"hongkong":     "Asia/Hong_Kong",
-	"singapore":    "Asia/Singapore",
-	"dubai":        "Asia/Dubai",
-	"mumbai":       "Asia/Kolkata",
-	"delhi":        "Asia/Kolkata",
-	"bangalore":    "Asia/Kolkata",
-	"kolkata":      "Asia/Kolkata",
-	"bangkok":      "Asia/Bangkok",
-	"jakarta":      "Asia/Jakarta",
-	"manila":       "Asia/Manila",
-	"seoul":        "Asia/Seoul",
-	"taipei":       "Asia/Taipei",
-	"kuala lumpur": "Asia/Kuala_Lumpur",
-	"karachi":      "Asia/Karachi",
-	"tehran":       "Asia/Tehran",
-	"riyadh":       "Asia/Riyadh",
-
-	// Africa
-	"cairo":         "Africa/Cairo",
-	"johannesburg":  "Africa/Johannesburg",
-	"lagos":         "Africa/Lagos",
-	"nairobi":       "Africa/Nairobi",
-	"casablanca":    "Africa/Casablanca",
-	"algiers":       "Africa/Algiers",
-	"tunis":         "Africa/Tunis",
-	"accra":         "Africa/Accra",
-	"addis ababa":   "Africa/Addis_Ababa",
-	"addisababa":    "Africa/Addis_Ababa",
-	"dar es salaam": "Africa/Dar_es_Salaam",
-	"kinshasa":      "Africa/Kinshasa",
-
-	// Oceania
-	"sydney":     "Australia/Sydney",
-	"melbourne":  "Australia/Melbourne",
-	"brisbane":   "Australia/Brisbane",
-	"perth":      "Australia/Perth",
-	"adelaide":   "Australia/Adelaide",
-	"auckland":   "Pacific/Auckland",
-	"wellington": "Pacific/Auckland",
-
-	// Common timezone abbreviations
-	"est":  "America/New_York",
-	"cst":  "America/Chicago",
-	"mst":  "America/Denver",
-	"pst":  "America/Los_Angeles",
-	"utc":  "UTC",
-	"gmt":  "Europe/London",
-	"bst":  "Europe/London",
-	"cet":  "Europe/Paris",
-	"ist":  "Asia/Kolkata",
-	"jst":  "Asia/Tokyo",
-	"aest": "Australia/Sydney",
-}
-
-func loadLocation(name string) (*time.Location, error) {
-	// Normalize the input
-	normalized := strings.ToLower(strings.TrimSpace(name))
-	normalized = strings.ReplaceAll(normalized, "_", " ")
-
-	// First, check the city mapping
-	if tz, ok := cityToTimezone[normalized]; ok {
-		return time.LoadLocation(tz)
-	}
-
-	// Try variations with the original name
-	variations := []string{
-		name,
-		strings.ReplaceAll(name, " ", "_"),
-		"America/" + strings.ReplaceAll(name, " ", "_"),
-		"Europe/" + strings.ReplaceAll(name, " ", "_"),
-		"Asia/" + strings.ReplaceAll(name, " ", "_"),
-		"Africa/" + strings.ReplaceAll(name, " ", "_"),
-		"Australia/" + strings.ReplaceAll(name, " ", "_"),
-		"Pacific/" + strings.ReplaceAll(name, " ", "_"),
-	}
-
-	for _, v := range variations {
-		if loc, err := time.LoadLocation(v); err == nil {
-			return loc, nil
-		}
-	}
-
-	// Provide helpful error message with suggestions
-	suggestions := getSuggestions(normalized)
-	if len(suggestions) > 0 {
-		return nil, fmt.Errorf("unknown location '%s'. Did you mean: %s?", name, strings.Join(suggestions, ", "))
-	}
-
-	return nil, fmt.Errorf("unknown location: %s", name)
-}
-
-// getSuggestions finds similar city names for typos
-func getSuggestions(input string) []string {
-	var suggestions []string
-	for city := range cityToTimezone {
-		if strings.HasPrefix(city, input) || strings.Contains(city, input) {
-			suggestions = append(suggestions, city)
-			if len(suggestions) >= 3 {
-				break
-			}
-		}
-	}
-	return suggestions
 }
 
 func parseTime(s string) (time.Time, error) {
