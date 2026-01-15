@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -154,11 +155,18 @@ func generateGoCode(cities map[string]string) error {
 	fmt.Fprintln(f, "// Contains ~15,000+ cities with population > 15,000")
 	fmt.Fprintln(f, "var GeneratedCities = map[string]string{")
 
-	// Write map entries (unsorted for now)
-	for key, value := range cities {
+	// Sort keys for consistent output
+	keys := make([]string, 0, len(cities))
+	for k := range cities {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	// Write map entries
+	for _, key := range keys {
 		// Escape quotes in city names
 		escapedKey := strings.ReplaceAll(key, `"`, `\"`)
-		fmt.Fprintf(f, "\t%q: %q,\n", escapedKey, value)
+		fmt.Fprintf(f, "\t%q: %q,\n", escapedKey, cities[key])
 	}
 
 	fmt.Fprintln(f, "}")
