@@ -17,9 +17,28 @@ func Resolve(name string) (*time.Location, error) {
 		normalized = canonical
 	}
 
-	loc, err := time.LoadLocation(normalized)
-	if err != nil {
-		return nil, fmt.Errorf("unknown location: %s", name)
+	// Check generated cities map
+	if tz, ok := GeneratedCities[normalized]; ok {
+		return time.LoadLocation(tz)
 	}
-	return loc, nil
+
+	// Fallback: try IANA timezone variations
+	variations := []string{
+		name,
+		strings.ReplaceAll(name, " ", "_"),
+		"America/" + strings.ReplaceAll(name, " ", "_"),
+		"Europe/" + strings.ReplaceAll(name, " ", "_"),
+		"Asia/" + strings.ReplaceAll(name, " ", "_"),
+		"Africa/" + strings.ReplaceAll(name, " ", "_"),
+		"Australia/" + strings.ReplaceAll(name, " ", "_"),
+		"Pacific/" + strings.ReplaceAll(name, " ", "_"),
+	}
+
+	for _, v := range variations {
+		if loc, err := time.LoadLocation(v); err == nil {
+			return loc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unknown location: %s", name)
 }
