@@ -40,5 +40,32 @@ func Resolve(name string) (*time.Location, error) {
 		}
 	}
 
+	// Provide helpful suggestions
+	suggestions := getSuggestions(normalized)
+	if len(suggestions) > 0 {
+		return nil, fmt.Errorf("unknown location '%s'. Did you mean: %s?", name, strings.Join(suggestions, ", "))
+	}
+
 	return nil, fmt.Errorf("unknown location: %s", name)
+}
+
+// getSuggestions finds similar city names for typos
+func getSuggestions(input string) []string {
+	var suggestions []string
+
+	// Check aliases
+	for alias := range ManualAliases {
+		if strings.Contains(alias, input) {
+			suggestions = append(suggestions, alias)
+		}
+	}
+
+	// Check cities
+	for city := range GeneratedCities {
+		if strings.Contains(city, input) {
+			suggestions = append(suggestions, city)
+		}
+	}
+
+	return suggestions
 }
