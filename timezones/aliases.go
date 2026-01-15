@@ -26,4 +26,29 @@ var ManualAliases = map[string]string{
 	"nola":           "new orleans",
 	"the bay":        "san francisco",
 	"silicon valley": "san jose",
+	"silicon beach":  "los angeles",
+
+	// Canada
+	"to":    "toronto",
+	"the 6": "toronto",
+	"yvr":   "vancouver",
+	"mtl":   "montreal",
+
+	// United Kingdom
+	"ldn":      "london",
+	"the city": "london",
+
+	// Europe
+	"paname": "paris",
+	"barca":  "barcelona",
+	"bcn":    "barcelona",
+	"mad":    "madrid",
+
+	// Asia
+	"hk":  "hong kong",
+	"sg":  "singapore",
+	"bkk": "bangkok",
+	"del": "delhi",
+	"bom": "mumbai",
+	"blr": "bangalore",
 }
