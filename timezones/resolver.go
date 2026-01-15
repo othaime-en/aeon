@@ -55,15 +55,21 @@ func getSuggestions(input string) []string {
 
 	// Check aliases
 	for alias := range ManualAliases {
-		if strings.Contains(alias, input) {
+		if strings.HasPrefix(alias, input) || strings.Contains(alias, input) {
 			suggestions = append(suggestions, alias)
+			if len(suggestions) >= 3 {
+				return suggestions
+			}
 		}
 	}
 
 	// Check cities
 	for city := range GeneratedCities {
-		if strings.Contains(city, input) {
+		if strings.HasPrefix(city, input) || strings.Contains(city, input) {
 			suggestions = append(suggestions, city)
+			if len(suggestions) >= 3 {
+				break
+			}
 		}
 	}
 
