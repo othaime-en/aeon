@@ -29,11 +29,11 @@ type Zone struct {
 
 // Model holds the application state
 type model struct {
-	zones         []Zone
-	currentView   viewType
-	selectedZone  int
-	width         int
-	height        int
+	zones        []Zone
+	currentView  viewType
+	selectedZone int
+	width        int
+	height       int
 
 	// Add zone state
 	addZoneActive bool
@@ -58,44 +58,44 @@ type tickMsg time.Time
 // Styles
 var (
 	titleStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(1)
+			Bold(true).
+			Foreground(lipgloss.Color("170")).
+			MarginBottom(1)
 
 	tabActiveStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		Background(lipgloss.Color("235")).
-		Padding(0, 2)
+			Bold(true).
+			Foreground(lipgloss.Color("170")).
+			Background(lipgloss.Color("235")).
+			Padding(0, 2)
 
 	tabInactiveStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Padding(0, 2)
+				Foreground(lipgloss.Color("240")).
+				Padding(0, 2)
 
 	clockStyle = lipgloss.NewStyle().
-		Padding(0, 1).
-		MarginBottom(1)
+			Padding(0, 1).
+			MarginBottom(1)
 
 	clockSelectedStyle = lipgloss.NewStyle().
-		Padding(0, 1).
-		MarginBottom(1).
-		Background(lipgloss.Color("235"))
+				Padding(0, 1).
+				MarginBottom(1).
+				Background(lipgloss.Color("235"))
 
 	helpStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		MarginTop(1)
+			Foreground(lipgloss.Color("240")).
+			MarginTop(1)
 
 	errorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("196")).
-		Bold(true)
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
 
 	resultStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("120")).
-		Padding(1, 0)
+			Foreground(lipgloss.Color("120")).
+			Padding(1, 0)
 
 	successStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("120")).
-		Bold(true)
+			Foreground(lipgloss.Color("120")).
+			Bold(true)
 )
 
 func initialModel() model {
@@ -422,13 +422,6 @@ func (m *model) addZone(name string) error {
 	loc, err := timezones.Resolve(name)
 	if err != nil {
 		return err
-	}
-
-	// Check if zone already exists
-	for _, z := range m.zones {
-		if z.Location.String() == loc.String() {
-			return fmt.Errorf("zone '%s' already added", name)
-		}
 	}
 
 	m.zones = append(m.zones, Zone{
