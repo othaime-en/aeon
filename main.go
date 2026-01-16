@@ -29,11 +29,11 @@ type Zone struct {
 
 // Model holds the application state
 type model struct {
-	zones        []Zone
-	currentView  viewType
-	selectedZone int
-	width        int
-	height       int
+	zones         []Zone
+	currentView   viewType
+	selectedZone  int
+	width         int
+	height        int
 
 	// Add zone state
 	addZoneActive bool
@@ -58,57 +58,61 @@ type tickMsg time.Time
 // Styles
 var (
 	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("170")).
-			MarginBottom(1)
+		Bold(true).
+		Foreground(lipgloss.Color("170")).
+		MarginBottom(1)
 
 	tabActiveStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color("170")).
-			Background(lipgloss.Color("235")).
-			Padding(0, 2)
+		Bold(true).
+		Foreground(lipgloss.Color("170")).
+		Background(lipgloss.Color("235")).
+		Padding(0, 2)
 
 	tabInactiveStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240")).
-				Padding(0, 2)
+		Foreground(lipgloss.Color("240")).
+		Padding(0, 2)
 
 	clockStyle = lipgloss.NewStyle().
-			Padding(0, 1).
-			MarginBottom(1)
+		Padding(0, 1).
+		MarginBottom(1)
 
 	clockSelectedStyle = lipgloss.NewStyle().
-				Padding(0, 1).
-				MarginBottom(1).
-				Background(lipgloss.Color("235"))
+		Padding(0, 1).
+		MarginBottom(1).
+		Background(lipgloss.Color("235"))
 
 	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")).
-			MarginTop(1)
+		Foreground(lipgloss.Color("240")).
+		MarginTop(1)
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true)
+		Foreground(lipgloss.Color("196")).
+		Bold(true)
 
 	resultStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("120")).
-			Padding(1, 0)
+		Foreground(lipgloss.Color("120")).
+		Padding(1, 0)
 
 	successStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("120")).
-			Bold(true)
+		Foreground(lipgloss.Color("120")).
+		Bold(true)
 )
 
 func initialModel() model {
-	// Initialize with local time and UTC
-	local := Zone{
-		Name:     "Local",
-		Location: time.Local,
-	}
-
-	utc, _ := time.LoadLocation("UTC")
-	utcZone := Zone{
-		Name:     "UTC",
-		Location: utc,
+	// Load config or use defaults
+	zones := loadZonesFromConfig()
+	if len(zones) == 0 {
+		// Default zones if no config
+		local := Zone{
+			Name:     "Local",
+			Location: time.Local,
+		}
+		utc, _ := time.LoadLocation("UTC")
+		utcZone := Zone{
+			Name:     "UTC",
+			Location: utc,
+		}
+		zones = []Zone{local, utcZone}
 	}
 
 	// Setup add zone input
@@ -130,7 +134,7 @@ func initialModel() model {
 	mi.Width = 50
 
 	return model{
-		zones:        []Zone{local, utcZone},
+		zones:        zones,
 		currentView:  clockView,
 		selectedZone: 0,
 		addZoneInput: azi,
@@ -169,6 +173,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.err = err
 					} else {
 						m.err = nil
+						saveZonesToConfig(m.zones)
 					}
 				}
 				m.addZoneActive = false
@@ -252,6 +257,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "d":
 			if m.currentView == clockView && len(m.zones) > 1 {
 				m.deleteSelectedZone()
+				saveZonesToConfig(m.zones)
 			}
 
 		case "up", "k":
