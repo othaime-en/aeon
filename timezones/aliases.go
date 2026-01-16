@@ -26,7 +26,6 @@ var ManualAliases = map[string]string{
 	"nola":           "new orleans",
 	"the bay":        "san francisco",
 	"silicon valley": "san jose",
-	"silicon beach":  "los angeles",
 
 	// Canada
 	"to":    "toronto",
@@ -51,4 +50,19 @@ var ManualAliases = map[string]string{
 	"del": "delhi",
 	"bom": "mumbai",
 	"blr": "bangalore",
+
+	// Australia
+	"syd":  "sydney",
+	"mel":  "melbourne",
+	"bris": "brisbane",
+
+	// Middle East
+	"dxb": "dubai",
+
+	// Africa
+	"jnb":     "johannesburg",
+	"jo'burg": "johannesburg",
+	"joburg":  "johannesburg",
+	"cpt":     "cape town",
+	"nbo":     "nairobi",
 }
