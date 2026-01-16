@@ -1,6 +1,7 @@
 package main
 
 import (
+	"aeon/timezones"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,6 +35,7 @@ func loadZonesFromConfig() []Zone {
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
+		// Config doesn't exist or can't be read - return empty
 		return nil
 	}
 
@@ -44,9 +46,21 @@ func loadZonesFromConfig() []Zone {
 
 	zones := make([]Zone, 0, len(config.Zones))
 	for _, cz := range config.Zones {
-		loc, err := time.LoadLocation(cz.Location)
-		if err != nil {
-			continue
+		var loc *time.Location
+		var err error
+
+		// Try to load as IANA timezone first
+		if cz.Location == "Local" {
+			loc = time.Local
+		} else {
+			loc, err = time.LoadLocation(cz.Location)
+			if err != nil {
+				// Try resolving through timezones package
+				loc, err = timezones.Resolve(cz.Location)
+				if err != nil {
+					continue // Skip invalid zones
+				}
+			}
 		}
 
 		zones = append(zones, Zone{
@@ -72,7 +86,9 @@ func saveZonesToConfig(zones []Zone) error {
 		}
 	}
 
-	config := Config{Zones: configZones}
+	config := Config{
+		Zones: configZones,
+	}
 
 	data, err := yaml.Marshal(&config)
 	if err != nil {
