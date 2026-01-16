@@ -29,10 +29,11 @@ type Zone struct {
 
 // Model holds the application state
 type model struct {
-	zones       []Zone
-	currentView viewType
-	width       int
-	height      int
+	zones        []Zone
+	currentView  viewType
+	selectedZone int
+	width        int
+	height       int
 
 	// Add zone state
 	addZoneActive bool
@@ -74,6 +75,11 @@ var (
 	clockStyle = lipgloss.NewStyle().
 			Padding(0, 1).
 			MarginBottom(1)
+
+	clockSelectedStyle = lipgloss.NewStyle().
+				Padding(0, 1).
+				MarginBottom(1).
+				Background(lipgloss.Color("235"))
 
 	helpStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")).
@@ -126,6 +132,7 @@ func initialModel() model {
 	return model{
 		zones:        []Zone{local, utcZone},
 		currentView:  clockView,
+		selectedZone: 0,
 		addZoneInput: azi,
 		convertInput: ti,
 		meetingInput: mi,
@@ -219,12 +226,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab", "right":
 			m.currentView = (m.currentView + 1) % 3
+			m.selectedZone = 0
 
 		case "shift+tab", "left":
 			m.currentView = (m.currentView + 2) % 3
+			m.selectedZone = 0
 
 		case "1":
 			m.currentView = clockView
+			m.selectedZone = 0
 
 		case "2", "c":
 			m.currentView = convertView
@@ -237,6 +247,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.addZoneActive = true
 				m.addZoneInput.Focus()
 				m.err = nil
+			}
+
+		case "d":
+			if m.currentView == clockView && len(m.zones) > 1 {
+				m.deleteSelectedZone()
+			}
+
+		case "up", "k":
+			if m.currentView == clockView && m.selectedZone > 0 {
+				m.selectedZone--
+			}
+
+		case "down", "j":
+			if m.currentView == clockView && m.selectedZone < len(m.zones)-1 {
+				m.selectedZone++
 			}
 
 		case "enter":
@@ -314,7 +339,7 @@ func (m model) renderClockView() string {
 		return b.String()
 	}
 
-	for _, zone := range m.zones {
+	for i, zone := range m.zones {
 		t := now.In(zone.Location)
 
 		// Format: Zone Name    HH:MM:SS    Day, Mon DD
@@ -324,7 +349,12 @@ func (m model) renderClockView() string {
 
 		line := fmt.Sprintf("%-15s  %s  %s  (UTC%s)",
 			zone.Name, timeStr, dateStr, offset)
-		b.WriteString(clockStyle.Render(line))
+
+		if i == m.selectedZone {
+			b.WriteString(clockSelectedStyle.Render(line))
+		} else {
+			b.WriteString(clockStyle.Render(line))
+		}
 		b.WriteString("\n")
 	}
 
@@ -373,7 +403,7 @@ func (m model) getHelpText() string {
 		if m.addZoneActive {
 			return ""
 		}
-		return "a: Add zone  •  ←/→: Switch views  •  q: Quit"
+		return "a: Add zone  •  d: Delete  •  ↑/↓: Select  •  ←/→: Switch views  •  q: Quit"
 	case convertView:
 		return "Enter: Convert  •  ←/→: Switch views  •  q: Quit"
 	case meetingView:
@@ -401,6 +431,18 @@ func (m *model) addZone(name string) error {
 	})
 
 	return nil
+}
+
+func (m *model) deleteSelectedZone() {
+	if m.selectedZone >= 0 && m.selectedZone < len(m.zones) {
+		m.zones = append(m.zones[:m.selectedZone], m.zones[m.selectedZone+1:]...)
+		if m.selectedZone >= len(m.zones) {
+			m.selectedZone = len(m.zones) - 1
+		}
+		if m.selectedZone < 0 {
+			m.selectedZone = 0
+		}
+	}
 }
 
 func (m model) processConversion(input string) string {
