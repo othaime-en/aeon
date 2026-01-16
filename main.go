@@ -34,6 +34,10 @@ type model struct {
 	width       int
 	height      int
 
+	// Add zone state
+	addZoneActive bool
+	addZoneInput  textinput.Model
+
 	// Convert view state
 	convertInput  textinput.Model
 	convertResult string
@@ -82,6 +86,10 @@ var (
 	resultStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("120")).
 			Padding(1, 0)
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("120")).
+			Bold(true)
 )
 
 func initialModel() model {
@@ -96,6 +104,12 @@ func initialModel() model {
 		Name:     "UTC",
 		Location: utc,
 	}
+
+	// Setup add zone input
+	azi := textinput.New()
+	azi.Placeholder = "Enter city name or timezone (e.g., NYC, Berlin, Asia/Tokyo)"
+	azi.CharLimit = 100
+	azi.Width = 60
 
 	// Setup convert input
 	ti := textinput.New()
@@ -112,6 +126,7 @@ func initialModel() model {
 	return model{
 		zones:        []Zone{local, utcZone},
 		currentView:  clockView,
+		addZoneInput: azi,
 		convertInput: ti,
 		meetingInput: mi,
 	}
@@ -132,58 +147,100 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Global shortcuts
-		switch msg.String() {
-		case "q", "esc":
-			if m.convertActive {
+		// Handle add zone input mode
+		if m.addZoneActive {
+			switch msg.String() {
+			case "esc":
+				m.addZoneActive = false
+				m.addZoneInput.Blur()
+				m.addZoneInput.SetValue("")
+				return m, nil
+			case "enter":
+				zoneName := strings.TrimSpace(m.addZoneInput.Value())
+				if zoneName != "" {
+					if err := m.addZone(zoneName); err != nil {
+						m.err = err
+					} else {
+						m.err = nil
+					}
+				}
+				m.addZoneActive = false
+				m.addZoneInput.Blur()
+				m.addZoneInput.SetValue("")
+				return m, nil
+			default:
+				m.addZoneInput, cmd = m.addZoneInput.Update(msg)
+				return m, cmd
+			}
+		}
+
+		// Handle convert input mode
+		if m.convertActive {
+			switch msg.String() {
+			case "esc":
 				m.convertActive = false
 				m.convertInput.Blur()
 				return m, nil
-			}
-			if m.meetingActive {
-				m.meetingActive = false
-				m.meetingInput.Blur()
-				return m, nil
-			}
-			return m, tea.Quit
-
-		case "tab", "right":
-			if !m.convertActive && !m.meetingActive {
-				m.currentView = (m.currentView + 1) % 3
-			}
-
-		case "shift+tab", "left":
-			if !m.convertActive && !m.meetingActive {
-				m.currentView = (m.currentView + 2) % 3
-			}
-
-		case "1":
-			if !m.convertActive && !m.meetingActive {
-				m.currentView = clockView
-			}
-
-		case "2", "c":
-			if !m.convertActive && !m.meetingActive {
-				m.currentView = convertView
-			}
-
-		case "3", "m":
-			if !m.convertActive && !m.meetingActive {
-				m.currentView = meetingView
-			}
-
-		case "enter":
-			if m.currentView == convertView && m.convertActive {
+			case "enter":
 				m.convertResult = m.processConversion(m.convertInput.Value())
 				m.convertActive = false
 				m.convertInput.Blur()
 				m.convertInput.SetValue("")
-			} else if m.currentView == meetingView && m.meetingActive {
+				return m, nil
+			default:
+				m.convertInput, cmd = m.convertInput.Update(msg)
+				return m, cmd
+			}
+		}
+
+		// Handle meeting input mode
+		if m.meetingActive {
+			switch msg.String() {
+			case "esc":
+				m.meetingActive = false
+				m.meetingInput.Blur()
+				return m, nil
+			case "enter":
 				m.meetingResult = m.processMeeting(m.meetingInput.Value())
 				m.meetingActive = false
 				m.meetingInput.Blur()
 				m.meetingInput.SetValue("")
-			} else if m.currentView == convertView {
+				return m, nil
+			default:
+				m.meetingInput, cmd = m.meetingInput.Update(msg)
+				return m, cmd
+			}
+		}
+
+		// Global shortcuts (when not in input mode)
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+
+		case "tab", "right":
+			m.currentView = (m.currentView + 1) % 3
+
+		case "shift+tab", "left":
+			m.currentView = (m.currentView + 2) % 3
+
+		case "1":
+			m.currentView = clockView
+
+		case "2", "c":
+			m.currentView = convertView
+
+		case "3", "m":
+			m.currentView = meetingView
+
+		case "a":
+			if m.currentView == clockView {
+				m.addZoneActive = true
+				m.addZoneInput.Focus()
+				m.err = nil
+			}
+
+		case "enter":
+			if m.currentView == convertView {
 				m.convertActive = true
 				m.convertInput.Focus()
 			} else if m.currentView == meetingView {
@@ -198,14 +255,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		return m, tickCmd()
-	}
-
-	// Update inputs
-	if m.convertActive {
-		m.convertInput, cmd = m.convertInput.Update(msg)
-	}
-	if m.meetingActive {
-		m.meetingInput, cmd = m.meetingInput.Update(msg)
 	}
 
 	return m, cmd
@@ -240,6 +289,12 @@ func (m model) View() string {
 		b.WriteString(m.renderMeetingView())
 	}
 
+	// Error message
+	if m.err != nil {
+		b.WriteString("\n")
+		b.WriteString(errorStyle.Render(fmt.Sprintf("Error: %v", m.err)))
+	}
+
 	// Help text
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render(m.getHelpText()))
@@ -250,6 +305,14 @@ func (m model) View() string {
 func (m model) renderClockView() string {
 	var b strings.Builder
 	now := time.Now()
+
+	if m.addZoneActive {
+		b.WriteString("Add timezone:\n\n")
+		b.WriteString(m.addZoneInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("Press Enter to add, Esc to cancel"))
+		return b.String()
+	}
 
 	for _, zone := range m.zones {
 		t := now.In(zone.Location)
@@ -307,13 +370,37 @@ func (m model) renderMeetingView() string {
 func (m model) getHelpText() string {
 	switch m.currentView {
 	case clockView:
-		return "←/→ or Tab: Switch views  •  1/2/3: Jump to view  •  q: Quit"
+		if m.addZoneActive {
+			return ""
+		}
+		return "a: Add zone  •  ←/→: Switch views  •  q: Quit"
 	case convertView:
-		return "c: Convert  •  ←/→: Switch views  •  q: Quit"
+		return "Enter: Convert  •  ←/→: Switch views  •  q: Quit"
 	case meetingView:
-		return "m: Meeting  •  ←/→: Switch views  •  q: Quit"
+		return "Enter: Find slots  •  ←/→: Switch views  •  q: Quit"
 	}
 	return ""
+}
+
+func (m *model) addZone(name string) error {
+	loc, err := timezones.Resolve(name)
+	if err != nil {
+		return err
+	}
+
+	// Check if zone already exists
+	for _, z := range m.zones {
+		if z.Location.String() == loc.String() {
+			return fmt.Errorf("zone '%s' already added", name)
+		}
+	}
+
+	m.zones = append(m.zones, Zone{
+		Name:     name,
+		Location: loc,
+	})
+
+	return nil
 }
 
 func (m model) processConversion(input string) string {
