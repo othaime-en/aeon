@@ -2,6 +2,8 @@
 
 A minimalistic TUI time zone converter for the terminal.
 
+[![Commits since latest](https://img.shields.io/github/commits-since/othaime-en/aeon/latest)](https://github.com/othaime-en/aeon/commits/latest)
+
 ## Features
 
 - **World Clock**: Live updating clocks for multiple time zones
@@ -36,6 +38,7 @@ go build -o aeon
 ### Examples
 
 **Convert times:**
+
 ```
 3pm NYC to Berlin
 9:30am Tokyo to London
@@ -43,6 +46,7 @@ go build -o aeon
 ```
 
 **Find meeting slots:**
+
 ```
 NYC, London, Tokyo
 San Francisco, Berlin, Singapore
