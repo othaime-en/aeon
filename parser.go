@@ -15,12 +15,29 @@ type ParsedTime struct {
 }
 
 // parseTimeWithContext parses a time string with support for:
+// - Natural language: "noon", "midnight", "now"
 // - Traditional: "3pm", "15:04"
 func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 	input = strings.ToLower(strings.TrimSpace(input))
 
 	if input == "" {
 		return ParsedTime{}, fmt.Errorf("empty time string")
+	}
+
+	// Natural language shortcuts
+	switch input {
+	case "now":
+		return ParsedTime{Time: refTime, Original: input}, nil
+	case "noon":
+		return ParsedTime{
+			Time:     time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 12, 0, 0, 0, refTime.Location()),
+			Original: input,
+		}, nil
+	case "midnight":
+		return ParsedTime{
+			Time:     time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 0, 0, 0, 0, refTime.Location()),
+			Original: input,
+		}, nil
 	}
 
 	// Fall back to simple time parsing (original behavior)
@@ -34,6 +51,16 @@ func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 // parseSimpleTime handles basic time formats (original parseTime logic)
 func parseSimpleTime(input string, baseDate time.Time) (ParsedTime, error) {
 	input = strings.ToLower(strings.TrimSpace(input))
+
+	// Handle "noon" and "midnight" if passed as simple time
+	switch input {
+	case "noon":
+		result := time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), 12, 0, 0, 0, baseDate.Location())
+		return ParsedTime{Time: result, Original: input}, nil
+	case "midnight":
+		result := time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(), 0, 0, 0, 0, baseDate.Location())
+		return ParsedTime{Time: result, Original: input}, nil
+	}
 
 	// Try parsing with various time formats
 	timeFormats := []string{
