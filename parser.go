@@ -15,11 +15,12 @@ type ParsedTime struct {
 }
 
 // parseTimeWithContext parses a time string with support for:
+// - Relative times: "in 2 hours"
 // - Natural language: "noon", "midnight", "now"
 // - Traditional: "3pm", "15:04"
 func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 	input = strings.ToLower(strings.TrimSpace(input))
-
+	
 	if input == "" {
 		return ParsedTime{}, fmt.Errorf("empty time string")
 	}
@@ -30,14 +31,19 @@ func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 		return ParsedTime{Time: refTime, Original: input}, nil
 	case "noon":
 		return ParsedTime{
-			Time:     time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 12, 0, 0, 0, refTime.Location()),
+			Time: time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 12, 0, 0, 0, refTime.Location()),
 			Original: input,
 		}, nil
 	case "midnight":
 		return ParsedTime{
-			Time:     time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 0, 0, 0, 0, refTime.Location()),
+			Time: time.Date(refTime.Year(), refTime.Month(), refTime.Day(), 0, 0, 0, 0, refTime.Location()),
 			Original: input,
 		}, nil
+	}
+
+	// Try relative time parsing first
+	if result, err := parseRelativeTime(input, refTime); err == nil {
+		return result, nil
 	}
 
 	// Fall back to simple time parsing (original behavior)
@@ -46,6 +52,31 @@ func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 	}
 
 	return ParsedTime{}, fmt.Errorf("could not parse time: %s", input)
+}
+
+// parseRelativeTime handles relative time expressions
+func parseRelativeTime(input string, refTime time.Time) (ParsedTime, error) {
+	// "in X hours/minutes/days"
+	inPattern := regexp.MustCompile(`^in\s+(\d+)\s+(hour|hours|minute|minutes|min|mins|day|days)$`)
+	if matches := inPattern.FindStringSubmatch(input); matches != nil {
+		amount, _ := strconv.Atoi(matches[1])
+		unit := matches[2]
+		
+		var duration time.Duration
+		switch {
+		case strings.HasPrefix(unit, "hour"):
+			duration = time.Duration(amount) * time.Hour
+		case strings.HasPrefix(unit, "min"):
+			duration = time.Duration(amount) * time.Minute
+		case strings.HasPrefix(unit, "day"):
+			duration = time.Duration(amount) * 24 * time.Hour
+		}
+		
+		result := refTime.Add(duration)
+		return ParsedTime{Time: result, Original: input}, nil
+	}
+
+	return ParsedTime{}, fmt.Errorf("not a relative time")
 }
 
 // parseSimpleTime handles basic time formats (original parseTime logic)
@@ -94,14 +125,14 @@ func parseSimpleTime(input string, baseDate time.Time) (ParsedTime, error) {
 		if matches[2] != "" {
 			minute, _ = strconv.Atoi(matches[2])
 		}
-
+		
 		// Handle AM/PM
 		if matches[3] == "pm" && hour < 12 {
 			hour += 12
 		} else if matches[3] == "am" && hour == 12 {
 			hour = 0
 		}
-
+		
 		if hour >= 0 && hour < 24 && minute >= 0 && minute < 60 {
 			result := time.Date(
 				baseDate.Year(), baseDate.Month(), baseDate.Day(),
