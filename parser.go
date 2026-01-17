@@ -112,6 +112,47 @@ func parseRelativeTime(input string, refTime time.Time) (ParsedTime, error) {
 		return ParsedTime{Time: timeResult.Time, Original: input}, nil
 	}
 
+	// "next monday/tuesday/etc [time]"
+	weekdays := map[string]time.Weekday{
+		"sunday": time.Sunday, "sun": time.Sunday,
+		"monday": time.Monday, "mon": time.Monday,
+		"tuesday": time.Tuesday, "tue": time.Tuesday, "tues": time.Tuesday,
+		"wednesday": time.Wednesday, "wed": time.Wednesday,
+		"thursday": time.Thursday, "thu": time.Thursday, "thur": time.Thursday, "thurs": time.Thursday,
+		"friday": time.Friday, "fri": time.Friday,
+		"saturday": time.Saturday, "sat": time.Saturday,
+	}
+
+	nextPattern := regexp.MustCompile(`^next\s+(\w+)(?:\s+(.+))?$`)
+	if matches := nextPattern.FindStringSubmatch(input); matches != nil {
+		dayName := matches[1]
+		timeStr := matches[2]
+
+		if targetWeekday, ok := weekdays[dayName]; ok {
+			// Find next occurrence of this weekday
+			currentWeekday := refTime.Weekday()
+			daysUntil := int(targetWeekday - currentWeekday)
+			if daysUntil <= 0 {
+				daysUntil += 7
+			}
+
+			targetDate := refTime.AddDate(0, 0, daysUntil)
+
+			if timeStr == "" {
+				// Default to 9am
+				result := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 9, 0, 0, 0, refTime.Location())
+				return ParsedTime{Time: result, Original: input}, nil
+			}
+
+			// Parse the time part
+			timeResult, err := parseSimpleTime(timeStr, targetDate)
+			if err != nil {
+				return ParsedTime{}, err
+			}
+			return ParsedTime{Time: timeResult.Time, Original: input}, nil
+		}
+	}
+
 	return ParsedTime{}, fmt.Errorf("not a relative time")
 }
 
