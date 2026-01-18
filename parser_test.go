@@ -310,3 +310,69 @@ func TestParseTimeWithContext(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRelativeTime(t *testing.T) {
+	refTime := time.Date(2026, 1, 16, 14, 30, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		input     string
+		wantDay   int
+		wantHour  int
+		wantError bool
+	}{
+		{
+			name:     "in 1 hour",
+			input:    "in 1 hour",
+			wantDay:  16,
+			wantHour: 15,
+		},
+		{
+			name:     "in 5 hours",
+			input:    "in 5 hours",
+			wantDay:  16,
+			wantHour: 19,
+		},
+		{
+			name:     "tomorrow default",
+			input:    "tomorrow",
+			wantDay:  17,
+			wantHour: 9,
+		},
+		{
+			name:     "yesterday default",
+			input:    "yesterday",
+			wantDay:  15,
+			wantHour: 9,
+		},
+		{
+			name:      "not relative",
+			input:     "3pm",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseRelativeTime(tt.input, refTime)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if result.Time.Day() != tt.wantDay {
+				t.Errorf("day = %d, want %d", result.Time.Day(), tt.wantDay)
+			}
+			if result.Time.Hour() != tt.wantHour {
+				t.Errorf("hour = %d, want %d", result.Time.Hour(), tt.wantHour)
+			}
+		})
+	}
+}
