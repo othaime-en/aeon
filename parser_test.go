@@ -450,3 +450,75 @@ func TestParseDateWithTime(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSimpleTime(t *testing.T) {
+	refTime := time.Date(2026, 1, 16, 14, 30, 0, 0, time.UTC)
+
+	tests := []struct {
+		name       string
+		input      string
+		wantHour   int
+		wantMinute int
+		wantError  bool
+	}{
+		{
+			name:       "3pm",
+			input:      "3pm",
+			wantHour:   15,
+			wantMinute: 0,
+		},
+		{
+			name:       "10:30am",
+			input:      "10:30am",
+			wantHour:   10,
+			wantMinute: 30,
+		},
+		{
+			name:       "15:04",
+			input:      "15:04",
+			wantHour:   15,
+			wantMinute: 4,
+		},
+		{
+			name:       "noon",
+			input:      "noon",
+			wantHour:   12,
+			wantMinute: 0,
+		},
+		{
+			name:       "midnight",
+			input:      "midnight",
+			wantHour:   0,
+			wantMinute: 0,
+		},
+		{
+			name:      "invalid",
+			input:     "invalid",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseSimpleTime(tt.input, refTime)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if result.Time.Hour() != tt.wantHour {
+				t.Errorf("hour = %d, want %d", result.Time.Hour(), tt.wantHour)
+			}
+			if result.Time.Minute() != tt.wantMinute {
+				t.Errorf("minute = %d, want %d", result.Time.Minute(), tt.wantMinute)
+			}
+		})
+	}
+}
