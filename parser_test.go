@@ -93,6 +93,48 @@ func TestParseTimeWithContext(t *testing.T) {
 			wantMonth:  time.January,
 			wantYear:   2026,
 		},
+
+		// Relative - in X hours/minutes/days
+		{
+			name:       "in 2 hours",
+			input:      "in 2 hours",
+			refTime:    refTime,
+			wantHour:   16,
+			wantMinute: 30,
+			wantDay:    16,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "in 30 minutes",
+			input:      "in 30 minutes",
+			refTime:    refTime,
+			wantHour:   15,
+			wantMinute: 0,
+			wantDay:    16,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "in 1 day",
+			input:      "in 1 day",
+			refTime:    refTime,
+			wantHour:   14,
+			wantMinute: 30,
+			wantDay:    17,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "in 3 days",
+			input:      "in 3 days",
+			refTime:    refTime,
+			wantHour:   14,
+			wantMinute: 30,
+			wantDay:    19,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
 	}
 
 	for _, tt := range tests {
