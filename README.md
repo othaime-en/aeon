@@ -43,6 +43,11 @@ go build -o aeon
 3pm NYC to Berlin
 9:30am Tokyo to London
 15:00 UTC to PST
+tomorrow 3pm NYC to Berlin
+in 2 hours Tokyo to London
+next monday noon San Francisco to Hong Kong
+2026-01-20 3pm LA to NYC
+noon NYC to Berlin
 ```
 
 **Find meeting slots:**
