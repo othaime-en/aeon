@@ -261,6 +261,20 @@ func TestParseTimeWithContext(t *testing.T) {
 			wantMonth:  time.February,
 			wantYear:   2026,
 		},
+
+		// Error cases
+		{
+			name:        "empty string",
+			input:       "",
+			refTime:     refTime,
+			shouldError: true,
+		},
+		{
+			name:        "invalid format",
+			input:       "asdfghjkl",
+			refTime:     refTime,
+			shouldError: true,
+		},
 	}
 
 	for _, tt := range tests {
