@@ -376,3 +376,77 @@ func TestParseRelativeTime(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDateWithTime(t *testing.T) {
+	refTime := time.Date(2026, 1, 16, 14, 30, 0, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		input     string
+		wantYear  int
+		wantMonth time.Month
+		wantDay   int
+		wantHour  int
+		wantError bool
+	}{
+		{
+			name:      "ISO format",
+			input:     "2026-03-15 3pm",
+			wantYear:  2026,
+			wantMonth: time.March,
+			wantDay:   15,
+			wantHour:  15,
+		},
+		{
+			name:      "month name",
+			input:     "march 15 3pm",
+			wantYear:  2026,
+			wantMonth: time.March,
+			wantDay:   15,
+			wantHour:  15,
+		},
+		{
+			name:      "numeric date",
+			input:     "3/15 3pm",
+			wantYear:  2026,
+			wantMonth: time.March,
+			wantDay:   15,
+			wantHour:  15,
+		},
+		{
+			name:      "not a date",
+			input:     "tomorrow 3pm",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseDateWithTime(tt.input, refTime)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if result.Time.Year() != tt.wantYear {
+				t.Errorf("year = %d, want %d", result.Time.Year(), tt.wantYear)
+			}
+			if result.Time.Month() != tt.wantMonth {
+				t.Errorf("month = %v, want %v", result.Time.Month(), tt.wantMonth)
+			}
+			if result.Time.Day() != tt.wantDay {
+				t.Errorf("day = %d, want %d", result.Time.Day(), tt.wantDay)
+			}
+			if result.Time.Hour() != tt.wantHour {
+				t.Errorf("hour = %d, want %d", result.Time.Hour(), tt.wantHour)
+			}
+		})
+	}
+}
