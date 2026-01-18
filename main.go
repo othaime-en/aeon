@@ -123,7 +123,7 @@ func initialModel() model {
 
 	// Setup convert input
 	ti := textinput.New()
-	ti.Placeholder = "e.g., 3pm NYC to Berlin"
+	ti.Placeholder = "e.g., tomorrow 3pm NYC to Berlin"
 	ti.CharLimit = 100
 	ti.Width = 50
 
@@ -374,9 +374,15 @@ func (m model) renderConvertView() string {
 		b.WriteString("Enter conversion query:\n\n")
 		b.WriteString(m.convertInput.View())
 		b.WriteString("\n\n")
-		b.WriteString(helpStyle.Render("Press Enter to convert, Esc to cancel"))
+		b.WriteString(helpStyle.Render("Examples: tomorrow 3pm NYC to Berlin • in 2 hours Tokyo to NYC • next monday noon LA to London"))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("          2026-01-20 3pm NYC to Berlin • midnight NYC to Berlin"))
 	} else {
 		b.WriteString("Press Enter to start a conversion\n\n")
+		b.WriteString(helpStyle.Render("Supports: relative times (tomorrow, in 2 hours, next monday)"))
+		b.WriteString("\n")
+		b.WriteString(helpStyle.Render("          dates (2026-01-20, Jan 20), natural language (noon, midnight, now)"))
+		b.WriteString("\n\n")
 		if m.convertResult != "" {
 			b.WriteString(resultStyle.Render(m.convertResult))
 		}
@@ -445,57 +451,87 @@ func (m *model) deleteSelectedZone() {
 }
 
 func (m model) processConversion(input string) string {
-	// Simple parser for "3pm NYC to Berlin" format
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return errorStyle.Render("Error: Empty input")
 	}
 
-	// Basic parsing (MVP - simple approach)
+	// Parse format: "[time expression] [source zone] to [target zone]"
 	parts := strings.Split(input, " to ")
 	if len(parts) != 2 {
-		return errorStyle.Render("Error: Use format '3pm NYC to Berlin'")
+		return errorStyle.Render("Error: Use format 'tomorrow 3pm NYC to Berlin' or '3pm NYC to Berlin'")
 	}
 
 	sourcePart := strings.TrimSpace(parts[0])
 	targetZone := strings.TrimSpace(parts[1])
 
-	// Parse source time and zone
+	// Split source part into time expression and zone
+	// We need to be smart about this since time expressions can be multi-word
 	sourceWords := strings.Fields(sourcePart)
 	if len(sourceWords) < 2 {
 		return errorStyle.Render("Error: Specify time and source zone")
 	}
 
-	timeStr := sourceWords[0]
-	sourceZone := strings.Join(sourceWords[1:], " ")
+	// Strategy: Last word(s) are likely the zone, everything before is time
+	// Try progressively taking more words as zone until resolution succeeds
+	var sourceZone string
+	var timeExpr string
+	var sourceLoc *time.Location
+	var err error
 
-	// Load locations using the timezones package
-	sourceLoc, err := timezones.Resolve(sourceZone)
-	if err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: %v", err))
+	for i := len(sourceWords) - 1; i > 0; i-- {
+		candidateZone := strings.Join(sourceWords[i:], " ")
+		candidateLoc, resolveErr := timezones.Resolve(candidateZone)
+
+		if resolveErr == nil {
+			sourceZone = candidateZone
+			sourceLoc = candidateLoc
+			timeExpr = strings.Join(sourceWords[:i], " ")
+			break
+		}
 	}
 
+	if sourceLoc == nil {
+		// Couldn't resolve zone, try last word only
+		sourceZone = sourceWords[len(sourceWords)-1]
+		sourceLoc, err = timezones.Resolve(sourceZone)
+		if err != nil {
+			return errorStyle.Render(fmt.Sprintf("Error: %v", err))
+		}
+		timeExpr = strings.Join(sourceWords[:len(sourceWords)-1], " ")
+	}
+
+	// Resolve target location
 	targetLoc, err := timezones.Resolve(targetZone)
 	if err != nil {
 		return errorStyle.Render(fmt.Sprintf("Error: %v", err))
 	}
 
-	// Parse time (simple 12/24 hour format)
-	sourceTime, err := parseTime(timeStr)
+	// Parse the time expression in the source timezone context
+	now := time.Now().In(sourceLoc)
+	parsedTime, err := parseTimeWithContext(timeExpr, now)
 	if err != nil {
-		return errorStyle.Render(fmt.Sprintf("Error: Invalid time format '%s'", timeStr))
+		return errorStyle.Render(fmt.Sprintf("Error: Invalid time expression '%s': %v", timeExpr, err))
 	}
 
-	// Convert
-	now := time.Now()
-	source := time.Date(now.Year(), now.Month(), now.Day(),
-		sourceTime.Hour(), sourceTime.Minute(), 0, 0, sourceLoc)
+	// Ensure the parsed time is in the source location
+	source := time.Date(
+		parsedTime.Time.Year(), parsedTime.Time.Month(), parsedTime.Time.Day(),
+		parsedTime.Time.Hour(), parsedTime.Time.Minute(), parsedTime.Time.Second(),
+		0, sourceLoc,
+	)
+
+	// Convert to target timezone
 	target := source.In(targetLoc)
 
-	return fmt.Sprintf("%s in %s  →  %s in %s",
-		source.Format("3:04 PM Mon Jan 02"),
+	// Format output with more context
+	sourceDisplay := source.Format("3:04 PM Mon Jan 02, 2006")
+	targetDisplay := target.Format("3:04 PM Mon Jan 02, 2006")
+
+	return fmt.Sprintf("%s in %s\n  →  %s in %s",
+		sourceDisplay,
 		sourceZone,
-		target.Format("3:04 PM Mon Jan 02"),
+		targetDisplay,
 		targetZone,
 	)
 }
@@ -531,27 +567,6 @@ func (m model) processMeeting(input string) string {
 	}
 
 	return b.String()
-}
-
-func parseTime(s string) (time.Time, error) {
-	s = strings.ToLower(strings.TrimSpace(s))
-
-	// Try common formats
-	formats := []string{
-		"3pm",
-		"3:04pm",
-		"15:04",
-		"3PM",
-		"3:04PM",
-	}
-
-	for _, format := range formats {
-		if t, err := time.Parse(format, s); err == nil {
-			return t, nil
-		}
-	}
-
-	return time.Time{}, fmt.Errorf("invalid time format")
 }
 
 func main() {
