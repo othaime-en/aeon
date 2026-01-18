@@ -135,6 +135,48 @@ func TestParseTimeWithContext(t *testing.T) {
 			wantMonth:  time.January,
 			wantYear:   2026,
 		},
+
+		// Tomorrow/Yesterday
+		{
+			name:       "tomorrow",
+			input:      "tomorrow",
+			refTime:    refTime,
+			wantHour:   9,
+			wantMinute: 0,
+			wantDay:    17,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "tomorrow 3pm",
+			input:      "tomorrow 3pm",
+			refTime:    refTime,
+			wantHour:   15,
+			wantMinute: 0,
+			wantDay:    17,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "tomorrow noon",
+			input:      "tomorrow noon",
+			refTime:    refTime,
+			wantHour:   12,
+			wantMinute: 0,
+			wantDay:    17,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
+		{
+			name:       "yesterday 10am",
+			input:      "yesterday 10am",
+			refTime:    refTime,
+			wantHour:   10,
+			wantMinute: 0,
+			wantDay:    15,
+			wantMonth:  time.January,
+			wantYear:   2026,
+		},
 	}
 
 	for _, tt := range tests {
