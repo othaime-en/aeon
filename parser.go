@@ -15,7 +15,8 @@ type ParsedTime struct {
 }
 
 // parseTimeWithContext parses a time string with support for:
-// - Relative times: "tomorrow 10am", "in 2 hours", "yesterday 3pm"
+// - Relative times: "tomorrow 10am", "in 2 hours", "next monday 3pm"
+// - Date support: "2026-01-20 3pm", "Jan 20 3pm"
 // - Natural language: "noon", "midnight", "now"
 // - Traditional: "3pm", "15:04"
 func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
@@ -43,6 +44,11 @@ func parseTimeWithContext(input string, refTime time.Time) (ParsedTime, error) {
 
 	// Try relative time parsing first
 	if result, err := parseRelativeTime(input, refTime); err == nil {
+		return result, nil
+	}
+
+	// Try date with time parsing
+	if result, err := parseDateWithTime(input, refTime); err == nil {
 		return result, nil
 	}
 
@@ -154,6 +160,70 @@ func parseRelativeTime(input string, refTime time.Time) (ParsedTime, error) {
 	}
 
 	return ParsedTime{}, fmt.Errorf("not a relative time")
+}
+
+// parseDateWithTime handles explicit dates with times
+func parseDateWithTime(input string, refTime time.Time) (ParsedTime, error) {
+	// Try various date formats
+	dateTimeFormats := []struct {
+		pattern string
+		layout  string
+	}{
+		// ISO format: 2026-01-20 3pm, 2026-01-20 15:04
+		{`^(\d{4}-\d{2}-\d{2})\s+(.+)$`, "2006-01-02"},
+		// US format: Jan 20 3pm, January 20 3pm
+		{`^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\s+(.+)$`, "Jan 2"},
+		// Numeric: 1/20 3pm, 01/20 3pm
+		{`^(\d{1,2}/\d{1,2})\s+(.+)$`, "1/2"},
+	}
+
+	for _, format := range dateTimeFormats {
+		pattern := regexp.MustCompile(format.pattern)
+		if matches := pattern.FindStringSubmatch(input); matches != nil {
+			var dateStr, timeStr string
+
+			if len(matches) == 3 {
+				dateStr = matches[1]
+				timeStr = matches[2]
+			} else if len(matches) == 4 {
+				// For month name format
+				dateStr = matches[1] + " " + matches[2]
+				timeStr = matches[3]
+			} else {
+				continue
+			}
+
+			// Parse the date part
+			var baseDate time.Time
+			var err error
+
+			if format.layout == "2006-01-02" {
+				baseDate, err = time.Parse(format.layout, dateStr)
+			} else if format.layout == "Jan 2" {
+				// For month names, we need to add a year
+				dateStr = strings.Title(dateStr) + " " + strconv.Itoa(refTime.Year())
+				baseDate, err = time.Parse("Jan 2 2006", dateStr)
+			} else if format.layout == "1/2" {
+				// For numeric dates, assume current year
+				dateStr = dateStr + "/" + strconv.Itoa(refTime.Year())
+				baseDate, err = time.Parse("1/2/2006", dateStr)
+			}
+
+			if err != nil {
+				continue
+			}
+
+			// Parse the time part
+			timeResult, err := parseSimpleTime(timeStr, baseDate)
+			if err != nil {
+				continue
+			}
+
+			return ParsedTime{Time: timeResult.Time, Original: input}, nil
+		}
+	}
+
+	return ParsedTime{}, fmt.Errorf("not a date with time")
 }
 
 // parseSimpleTime handles basic time formats (original parseTime logic)
